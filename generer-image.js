@@ -74,6 +74,25 @@
     return null;
   }
 
+  // Détecter le fichier source depuis la conversation existante
+  function detectSourceFile() {
+    const userMsgs = document.querySelectorAll('[data-message-author-role="user"]');
+    for (const msg of userMsgs) {
+      const text = msg.textContent || '';
+      const sourceMatch = text.match(/Fichier source\s*:\s*([^\n]+\.md)/i);
+      if (sourceMatch) {
+        return sourceMatch[1].trim();
+      }
+    }
+    // Fallback: chercher dans tout le body
+    const allText = document.body.innerText || '';
+    const bodyMatch = allText.match(/Fichier source\s*:\s*([^\n]+\.md)/i);
+    if (bodyMatch) {
+      return bodyMatch[1].trim();
+    }
+    return null;
+  }
+
   // Extraire la première lettre significative
   function getFirstLetter(title) {
     if (!title) return null;
@@ -415,8 +434,15 @@
       let finalPrompt;
 
       if (hasContent) {
-        // Conversation existante : prompt seul
-        finalPrompt = promptTemplate;
+        // Conversation existante : prompt seul, mais inclure Fichier source si détecté
+        const sourceFile = detectSourceFile();
+        if (sourceFile) {
+          finalPrompt = `Fichier source : ${sourceFile}\n\n${promptTemplate}`;
+          logInfo(`Fichier source détecté: ${sourceFile}`);
+        } else {
+          finalPrompt = promptTemplate;
+          logInfo('⚠️ Aucun fichier source détecté dans la conversation');
+        }
       } else {
         // Nouvelle conversation : article + prompt
         const res = await safeFetch(
