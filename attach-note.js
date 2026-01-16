@@ -57,14 +57,14 @@
   overlay.innerHTML = `
     <style>${styles}</style>
     <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;">
-      <div style="background:white;padding:20px;border-radius:8px;min-width:500px;max-width:650px;max-height:80vh;color:black;display:flex;flex-direction:column;">
+      <div style="background:#1e1e1e;padding:20px;border-radius:8px;min-width:500px;max-width:650px;max-height:80vh;color:#dcddde;display:flex;flex-direction:column;">
         <h3 style="margin:0 0 15px 0;">Attacher une note à ChatGPT</h3>
-        <input type="text" id="note-search" placeholder="Rechercher une note..." style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;">
-        <div id="note-tree" style="flex:1;overflow-y:auto;border:1px solid #ccc;border-radius:4px;max-height:450px;min-height:250px;padding:8px;">
-          <div style="padding:20px;text-align:center;color:#666;">Chargement...</div>
+        <input type="text" id="note-search" placeholder="Rechercher une note..." style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #404040;border-radius:4px;box-sizing:border-box;background:#2b2b2b;color:#dcddde;">
+        <div id="note-tree" style="flex:1;overflow-y:auto;border:1px solid #404040;border-radius:4px;max-height:450px;min-height:250px;padding:8px;background:#2b2b2b;">
+          <div style="padding:20px;text-align:center;color:#888;">Chargement...</div>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:15px;">
-          <button id="note-cancel" style="padding:8px 16px;cursor:pointer;border:1px solid #ccc;background:white;border-radius:4px;">Annuler</button>
+          <button id="note-cancel" style="padding:8px 16px;cursor:pointer;border:1px solid #404040;background:#2b2b2b;color:#dcddde;border-radius:4px;">Annuler</button>
         </div>
       </div>
     </div>

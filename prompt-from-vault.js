@@ -72,19 +72,19 @@
     backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
     const modal = document.createElement('div');
-    modal.style.cssText = 'background:white;padding:20px;border-radius:8px;min-width:400px;max-width:500px;color:black;';
+    modal.style.cssText = 'background:#1e1e1e;padding:20px;border-radius:8px;min-width:400px;max-width:500px;color:#dcddde;';
 
     const title = document.createElement('h3');
     title.style.cssText = 'margin:0 0 15px 0;';
     title.textContent = 'Sélectionner un prompt';
 
     const info = document.createElement('p');
-    info.style.cssText = 'margin:0 0 10px 0;font-size:12px;color:#666;';
+    info.style.cssText = 'margin:0 0 10px 0;font-size:12px;color:#888;';
     info.textContent = `Source: ${source} | Dossier: ${PROMPTS_FOLDER}/`;
 
     const select = document.createElement('select');
     select.id = 'prompt-file-select';
-    select.style.cssText = 'width:100%;padding:10px;margin-bottom:10px;background:white;color:black;border:1px solid #ccc;font-size:14px;';
+    select.style.cssText = 'width:100%;padding:10px;margin-bottom:10px;background:#2b2b2b;color:#dcddde;border:1px solid #404040;font-size:14px;';
     const loadingOpt = document.createElement('option');
     loadingOpt.value = '';
     loadingOpt.textContent = 'Chargement...';
@@ -92,14 +92,14 @@
 
     const preview = document.createElement('div');
     preview.id = 'prompt-preview';
-    preview.style.cssText = 'max-height:200px;overflow-y:auto;padding:10px;background:#f5f5f5;border-radius:4px;margin-bottom:15px;font-size:12px;font-family:monospace;white-space:pre-wrap;display:none;';
+    preview.style.cssText = 'max-height:200px;overflow-y:auto;padding:10px;background:#2b2b2b;border-radius:4px;margin-bottom:15px;font-size:12px;font-family:monospace;white-space:pre-wrap;display:none;color:#dcddde;border:1px solid #404040;';
 
     const btnRow = document.createElement('div');
     btnRow.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;';
 
     const btnCancel = document.createElement('button');
     btnCancel.id = 'prompt-cancel';
-    btnCancel.style.cssText = 'padding:8px 16px;cursor:pointer;border:1px solid #ccc;background:white;border-radius:4px;';
+    btnCancel.style.cssText = 'padding:8px 16px;cursor:pointer;border:1px solid #404040;background:#2b2b2b;color:#dcddde;border-radius:4px;';
     btnCancel.textContent = 'Annuler';
 
     const btnSend = document.createElement('button');

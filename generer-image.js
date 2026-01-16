@@ -4,7 +4,7 @@
  *
  * Ce script détecte automatiquement si la conversation contient déjà du contenu :
  * - Si OUI : injecte uniquement le prompt de génération d'image
- * - Si NON : propose de sélectionner un article preprint
+ * - Si NON : propose de sélectionner un article (type: article)
  *
  * Prérequis : Le script download-dalle.js doit être actif pour sauvegarder l'image générée.
  */
@@ -15,7 +15,7 @@
   const SCRIPT_NAME = 'generer-image';
   const API_URL = 'http://localhost:27123';
   const TOKEN = '79e3a12f004e1adc897f290b9532d4669d7602a2f26c30aa70f68a2f691ebbab';
-  const ARTICLES_FOLDER = 'Articles';
+  const ARTICLES_FOLDER = 'Publications';
   const PROMPTS_FOLDER = '_Assets/Prompts Pipeline/images';
 
   function logInfo(msg) { console.log(`[${SCRIPT_NAME}] ${msg}`); }
@@ -45,9 +45,9 @@
   // === Détection du contenu existant ===
 
   function hasExistingContent() {
-    // Vérifier s'il y a des messages dans la conversation
-    const assistantMsgs = document.querySelectorAll('[data-message-author-role="assistant"]');
-    const userMsgs = document.querySelectorAll('[data-message-author-role="user"]');
+    // Vérifier s'il y a des messages dans la conversation (plusieurs selecteurs possibles selon la version ChatGPT)
+    const assistantMsgs = document.querySelectorAll('[data-message-author-role="assistant"], [data-turn="assistant"]');
+    const userMsgs = document.querySelectorAll('[data-message-author-role="user"], [data-turn="user"]');
 
     // S'il y a au moins un échange (user + assistant), on considère qu'il y a du contenu
     if (assistantMsgs.length > 0 && userMsgs.length > 0) {
@@ -61,7 +61,7 @@
 
   // Essayer de détecter le titre de l'article dans la conversation
   function detectArticleTitle() {
-    const userMsgs = document.querySelectorAll('[data-message-author-role="user"]');
+    const userMsgs = document.querySelectorAll('[data-message-author-role="user"], [data-turn="user"]');
     for (const msg of userMsgs) {
       const text = msg.textContent || '';
       // Chercher un titre H1
@@ -76,7 +76,7 @@
 
   // Détecter le fichier source depuis la conversation existante
   function detectSourceFile() {
-    const userMsgs = document.querySelectorAll('[data-message-author-role="user"]');
+    const userMsgs = document.querySelectorAll('[data-message-author-role="user"], [data-turn="user"]');
     for (const msg of userMsgs) {
       const text = msg.textContent || '';
       const sourceMatch = text.match(/Fichier source\s*:\s*([^\n]+\.md)/i);
@@ -133,8 +133,30 @@
 
   // === Recherche des articles ===
 
-  async function findPreprintFiles() {
-    const preprints = [];
+  // Vérifier si un fichier a type: article dans son frontmatter
+  async function isArticleFile(filePath) {
+    try {
+      const res = await safeFetch(
+        `${API_URL}/vault/${encodeURIComponent(filePath)}`,
+        { headers: { 'Authorization': `Bearer ${TOKEN}` } }
+      );
+      if (!res.ok) return false;
+
+      const content = typeof res.text === 'function' ? await res.text() : res.text;
+      // Chercher type: article dans le frontmatter
+      const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+      if (fmMatch) {
+        const frontmatter = fmMatch[1];
+        return /^type:\s*article\s*$/m.test(frontmatter);
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function findArticleFiles() {
+    const articles = [];
 
     async function searchFolder(path = '') {
       try {
@@ -150,8 +172,11 @@
           if (item.endsWith('/')) {
             if (item.startsWith('.') || item.startsWith('_')) continue;
             await searchFolder(path + item);
-          } else if (item.includes('_6_preprint.md')) {
-            preprints.push(path + item);
+          } else if (item.endsWith('.md')) {
+            const filePath = path + item;
+            if (await isArticleFile(filePath)) {
+              articles.push(filePath);
+            }
           }
         }
       } catch (e) {
@@ -160,7 +185,7 @@
     }
 
     await searchFolder(ARTICLES_FOLDER + '/');
-    return preprints;
+    return articles;
   }
 
   // Extraire le titre depuis le contenu
@@ -237,7 +262,7 @@
   backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
   const modal = document.createElement('div');
-  modal.style.cssText = 'background:white;padding:20px;border-radius:8px;min-width:450px;max-width:600px;color:black;';
+  modal.style.cssText = 'background:#1e1e1e;padding:20px;border-radius:8px;min-width:450px;max-width:600px;color:#dcddde;';
 
   const title = document.createElement('h3');
   title.style.cssText = 'margin:0 0 15px 0;';
@@ -261,7 +286,7 @@
   typeLabel.textContent = 'Type d\'image :';
 
   const typeSelect = document.createElement('select');
-  typeSelect.style.cssText = 'width:100%;padding:10px;margin-bottom:15px;background:white;color:black;border:1px solid #ccc;font-size:14px;';
+  typeSelect.style.cssText = 'width:100%;padding:10px;margin-bottom:15px;background:#2b2b2b;color:#dcddde;border:1px solid #404040;font-size:14px;';
 
   const types = [
     { value: 'enluminure', label: '🔤 Enluminure (lettre décorative)' },
@@ -302,7 +327,7 @@
   articleLabel.textContent = 'Article source :';
 
   const articleSelect = document.createElement('select');
-  articleSelect.style.cssText = 'width:100%;padding:10px;background:white;color:black;border:1px solid #ccc;font-size:14px;';
+  articleSelect.style.cssText = 'width:100%;padding:10px;background:#2b2b2b;color:#dcddde;border:1px solid #404040;font-size:14px;';
 
   const loadingOpt = document.createElement('option');
   loadingOpt.value = '';
@@ -317,7 +342,7 @@
   btnRow.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;margin-top:20px;';
 
   const btnCancel = document.createElement('button');
-  btnCancel.style.cssText = 'padding:10px 20px;cursor:pointer;border:1px solid #ccc;background:white;border-radius:4px;';
+  btnCancel.style.cssText = 'padding:10px 20px;cursor:pointer;border:1px solid #404040;background:#2b2b2b;color:#dcddde;border-radius:4px;';
   btnCancel.textContent = 'Annuler';
 
   const btnGenerate = document.createElement('button');
@@ -350,16 +375,16 @@
 
   // Charger les articles si nouvelle conversation
   if (!hasContent) {
-    logInfo('Chargement des articles...');
-    const preprints = await findPreprintFiles();
-    logInfo(`${preprints.length} preprints trouvés`);
+    logInfo('Chargement des articles (type: article)...');
+    const articles = await findArticleFiles();
+    logInfo(`${articles.length} articles trouvés`);
 
     while (articleSelect.firstChild) articleSelect.removeChild(articleSelect.firstChild);
 
-    if (preprints.length === 0) {
+    if (articles.length === 0) {
       const opt = document.createElement('option');
       opt.value = '';
-      opt.textContent = 'Aucun fichier _6_preprint.md trouvé';
+      opt.textContent = 'Aucun article trouvé (type: article)';
       articleSelect.appendChild(opt);
     } else {
       const defaultOpt = document.createElement('option');
@@ -367,10 +392,11 @@
       defaultOpt.textContent = '-- Sélectionner un article --';
       articleSelect.appendChild(defaultOpt);
 
-      preprints.forEach(path => {
+      articles.forEach(path => {
         const opt = document.createElement('option');
         opt.value = path;
-        const articleName = path.replace('Articles/', '').replace('/_6_preprint.md', '').replace('_6_preprint.md', '');
+        // Extraire un nom lisible depuis le chemin
+        const articleName = path.replace('Articles/', '').replace('.md', '');
         opt.textContent = articleName || path;
         articleSelect.appendChild(opt);
       });
@@ -456,9 +482,9 @@
 
         const content = typeof res.text === 'function' ? await res.text() : res.text;
         const articleContent = extractArticleContent(content);
-        const filename = articleSelect.value.split('/').pop();
+        const filePath = articleSelect.value; // Chemin complet pour retrouver le fichier
 
-        finalPrompt = `Fichier source : ${filename}
+        finalPrompt = `Fichier source : ${filePath}
 
 Voici l'article :
 

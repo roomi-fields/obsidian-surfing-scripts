@@ -115,40 +115,29 @@
     .replace(/[\/\\:*?"<>|]/g, '')
     .substring(0, 100);
 
-  // Bouton d'enrichissement pipeline (Dataview JS)
-  const enrichButton = `
-\`\`\`dataviewjs
-const btn = dv.el('button', '🚀 Générer Références + Structure');
-btn.style.cssText = 'background:#7c3aed;color:white;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-size:14px;';
-btn.onclick = async () => {
-  const file = dv.current().file.path;
-  const categorie = dv.current().categorie || 'regards';
-  btn.textContent = '⏳ Enrichissement en cours...';
-  btn.disabled = true;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 300000);
-    const res = await fetch('http://192.168.1.44:32770/webhook/article-enrichissement', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({file_path: file, category: categorie}),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    const data = await res.json();
-    if (data.status === 'success') {
-      btn.textContent = '✅ Fichiers créés !';
-      new Notice('_2_references.md et _3_structure.md créés ! (notebook: ' + (data.notebook_used || 'aucun') + ')');
-    } else {
-      btn.textContent = '❌ Erreur';
-    }
-  } catch(e) {
-    btn.textContent = '❌ ' + e.message;
-  }
-};
-\`\`\`
+  // Charger le template du bouton workflow depuis le vault
+  const WORKFLOW_BUTTON_TEMPLATE = '_Assets/Prompts Pipeline/workflow-button.template.md';
 
-`;
+  async function loadWorkflowButton() {
+    try {
+      const res = await safeFetch(API_URL + '/vault/' + encodeURIComponent(WORKFLOW_BUTTON_TEMPLATE), {
+        headers: { 'Authorization': 'Bearer ' + TOKEN }
+      });
+      if (res.ok) {
+        const content = typeof res.text === 'function' ? await res.text() : res.text;
+        // Extraire le bloc dataviewjs du template
+        const match = content.match(/```dataviewjs\n([\s\S]*?)```/);
+        if (match) {
+          return '\n```dataviewjs\n' + match[1] + '```\n\n';
+        }
+      }
+    } catch (e) {
+      logError('loadWorkflowButton', e);
+    }
+    // Fallback si le template n'est pas trouvé
+    logInfo('Template workflow-button non trouvé, utilisation du fallback');
+    return null;
+  }
 
   // === Créer le popup avec DOM API (compatible Trusted Types) ===
   const overlay = document.createElement('div');
@@ -158,7 +147,7 @@ btn.onclick = async () => {
   backdrop.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
   const modal = document.createElement('div');
-  modal.style.cssText = 'background:white;padding:20px;border-radius:8px;min-width:380px;max-width:450px;color:black;';
+  modal.style.cssText = 'background:#1e1e1e;padding:20px;border-radius:8px;min-width:380px;max-width:450px;color:#dcddde;';
 
   const titleEl = document.createElement('h3');
   titleEl.style.cssText = 'margin:0 0 15px 0;';
@@ -197,7 +186,7 @@ btn.onclick = async () => {
 
   const categorySelect = document.createElement('select');
   categorySelect.id = 'obsidian-category';
-  categorySelect.style.cssText = 'width:100%;padding:8px;margin-bottom:8px;background:white;color:black;border:1px solid #ccc;';
+  categorySelect.style.cssText = 'width:100%;padding:8px;margin-bottom:8px;background:#2b2b2b;color:#dcddde;border:1px solid #404040;';
 
   CATEGORIES.forEach(cat => {
     const opt = document.createElement('option');
@@ -214,7 +203,7 @@ btn.onclick = async () => {
   customInput.type = 'text';
   customInput.id = 'obsidian-category-custom';
   customInput.placeholder = 'ex: meditation, jung, attachement...';
-  customInput.style.cssText = 'width:100%;padding:8px;background:white;color:black;border:1px solid #ccc;box-sizing:border-box;';
+  customInput.style.cssText = 'width:100%;padding:8px;background:#2b2b2b;color:#dcddde;border:1px solid #404040;box-sizing:border-box;';
 
   categoryContainer.appendChild(categoryLabel);
   categoryContainer.appendChild(categorySelect);
@@ -228,7 +217,7 @@ btn.onclick = async () => {
 
   const folderSelect = document.createElement('select');
   folderSelect.id = 'obsidian-folder';
-  folderSelect.style.cssText = 'width:100%;padding:8px;margin-bottom:15px;background:white;color:black;border:1px solid #ccc;';
+  folderSelect.style.cssText = 'width:100%;padding:8px;margin-bottom:15px;background:#2b2b2b;color:#dcddde;border:1px solid #404040;';
 
   const loadingOpt = document.createElement('option');
   loadingOpt.value = '';
@@ -240,7 +229,7 @@ btn.onclick = async () => {
   btnRow.style.cssText = 'display:flex;gap:10px;justify-content:flex-end;';
 
   const btnCancel = document.createElement('button');
-  btnCancel.style.cssText = 'padding:8px 16px;cursor:pointer;border:1px solid #ccc;background:white;border-radius:4px;';
+  btnCancel.style.cssText = 'padding:8px 16px;cursor:pointer;border:1px solid #404040;background:#2b2b2b;color:#dcddde;border-radius:4px;';
   btnCancel.textContent = 'Annuler';
 
   const btnCreate = document.createElement('button');
@@ -329,13 +318,20 @@ btn.onclick = async () => {
       const customCat = customInput.value.trim().toLowerCase().replace(/\s+/g, '-');
       const selectedCategory = customCat || categorySelect.value;
 
+      // Charger le template du bouton workflow
+      const workflowButton = await loadWorkflowButton();
+      if (!workflowButton) {
+        alert('Impossible de charger le template workflow-button. Vérifiez que le fichier existe.');
+        return;
+      }
+
       // Injecter le bouton après le frontmatter
       const frontmatterEnd = finalContent.indexOf('---', finalContent.indexOf('---') + 3);
       if (frontmatterEnd !== -1) {
         const insertPos = frontmatterEnd + 3;
-        finalContent = finalContent.slice(0, insertPos) + '\n' + enrichButton + finalContent.slice(insertPos);
+        finalContent = finalContent.slice(0, insertPos) + '\n' + workflowButton + finalContent.slice(insertPos);
       } else {
-        finalContent = enrichButton + finalContent;
+        finalContent = workflowButton + finalContent;
       }
 
       // Injecter la catégorie dans le frontmatter

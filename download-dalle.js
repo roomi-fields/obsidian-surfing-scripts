@@ -74,10 +74,27 @@
     return null;
   }
 
-  // Chercher le fichier dans le vault par son nom
-  async function findFileInVault(filename) {
+  // Chercher le fichier dans le vault par son nom ou chemin
+  async function findFileInVault(fileNameOrPath) {
+    console.log(`🔍 Recherche de "${fileNameOrPath}" dans le vault...`);
+
+    // Si c'est déjà un chemin complet (contient /), vérifier s'il existe directement
+    if (fileNameOrPath.includes('/')) {
+      try {
+        const res = await window.surfingFetch(
+          `http://127.0.0.1:${OBSIDIAN_API_PORT}/vault/${encodeURIComponent(fileNameOrPath)}`,
+          { headers: { 'Authorization': `Bearer ${OBSIDIAN_API_KEY}` } }
+        );
+        if (res.ok) {
+          console.log(`✅ Fichier trouvé (chemin direct): ${fileNameOrPath}`);
+          return fileNameOrPath;
+        }
+      } catch (e) {}
+    }
+
+    // Sinon, recherche par nom de fichier
+    const filename = fileNameOrPath.includes('/') ? fileNameOrPath.split('/').pop() : fileNameOrPath;
     const searchName = filename.replace('.md', '');
-    console.log(`🔍 Recherche de "${filename}" dans le vault...`);
 
     async function searchFolder(path = '') {
       try {
@@ -108,20 +125,29 @@
       return null;
     }
 
-    // Essayer d'abord dans Articles/ directement
-    const directPath = 'Articles/' + filename;
-    try {
-      const res = await window.surfingFetch(
-        `http://127.0.0.1:${OBSIDIAN_API_PORT}/vault/${encodeURIComponent(directPath)}`,
-        { headers: { 'Authorization': `Bearer ${OBSIDIAN_API_KEY}` } }
-      );
-      if (res.ok) {
-        console.log(`✅ Fichier trouvé directement: ${directPath}`);
-        return directPath;
-      }
-    } catch (e) {}
+    // Essayer d'abord dans les dossiers courants
+    const directPaths = [
+      'Publications/' + filename,
+      'Articles/' + filename
+    ];
 
-    // Sinon recherche récursive
+    for (const directPath of directPaths) {
+      try {
+        const res = await window.surfingFetch(
+          `http://127.0.0.1:${OBSIDIAN_API_PORT}/vault/${encodeURIComponent(directPath)}`,
+          { headers: { 'Authorization': `Bearer ${OBSIDIAN_API_KEY}` } }
+        );
+        if (res.ok) {
+          console.log(`✅ Fichier trouvé directement: ${directPath}`);
+          return directPath;
+        }
+      } catch (e) {}
+    }
+
+    // Sinon recherche récursive dans Publications/ puis racine
+    const inPublications = await searchFolder('Publications/');
+    if (inPublications) return inPublications;
+
     return await searchFolder();
   }
 
