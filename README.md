@@ -5,21 +5,16 @@ Automatise la création de notes et articles Obsidian depuis tes conversations C
 ## Architecture
 
 ```
-scripts/
 ├── prompt-from-vault.js   # Injecte un prompt depuis le vault
 ├── create-note.js         # Crée une note depuis la réponse
-├── creer-article.js       # Crée un article avec enluminure
 ├── download-dalle.js      # Boutons Save sur images DALL-E
-└── attach-note.js         # Attache la note active à ChatGPT
+├── generer-image.js       # Génère une image via prompt
+└── attach-note.js         # Attache une note du vault à ChatGPT
 
-vault/_prompts/            # Prompts stockés dans Obsidian
-├── _exemple-variables.md  # Documentation des variables
-├── Re-Liance - Thérapie.md
-├── Re-Liance - Regards.md
-├── Résumé Conversation.md
-├── Traduire Article FR-EN.md
-├── Enluminure FR.md
-└── Enluminure EN.md
+vault/_prompts/            # Vos prompts stockés dans Obsidian (exemples)
+├── Resume Conversation.md
+├── Traduire FR-EN.md
+└── ...
 ```
 
 ## Prérequis
@@ -113,13 +108,11 @@ date: {{date}}
 4. L'IA génère la réponse formatée
 5. Exécute **"Créer Note"** ou **"Créer Article"** selon le type
 
-### Workflow articles avec enluminure (ChatGPT)
+### Workflow avec images DALL-E (ChatGPT)
 
-1. Sélectionne le prompt **"Re-Liance - Thérapie"** ou **"Re-Liance - Regards"**
-2. Sélectionne **"Enluminure FR"** → Clique "Save FR" sur l'image
-3. (Optionnel) Sélectionne **"Traduire Article FR-EN"**
-4. (Optionnel) Sélectionne **"Enluminure EN"** → Clique "Save EN"
-5. Exécute **"Créer Article"** → Détecte automatiquement mono/bilingue
+1. Utilise un prompt qui génère une image DALL-E
+2. Clique sur le bouton **"Save"** ajouté par le script sur l'image
+3. L'image est sauvegardée dans ton vault Obsidian
 
 ---
 
@@ -136,13 +129,15 @@ date: {{date}}
 
 ## Configuration
 
-Modifiez ces constantes dans les scripts :
+Modifiez ces constantes dans chaque script :
 
 ```javascript
 const API_URL = 'http://localhost:27123';
-const TOKEN = 'votre-token-api';
-const PROMPTS_FOLDER = 'Publications/_prompts'; // Chemin relatif dans le vault
+const TOKEN = 'YOUR_LOCAL_REST_API_TOKEN';  // Token de Local REST API (Settings > Local REST API)
+const PROMPTS_FOLDER = '_Assets/Prompts';   // Chemin relatif vers vos prompts dans le vault
 ```
+
+Pour obtenir le token : dans Obsidian, allez dans **Settings > Local REST API > API Key**.
 
 ---
 

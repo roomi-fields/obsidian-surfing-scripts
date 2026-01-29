@@ -24,7 +24,7 @@
 
   try {
     const API_URL = 'http://localhost:27123';
-    const TOKEN = '79e3a12f004e1adc897f290b9532d4669d7602a2f26c30aa70f68a2f691ebbab';
+    const TOKEN = 'YOUR_LOCAL_REST_API_TOKEN';
     const PROMPTS_FOLDER = '_Assets/Prompts';
 
     const isClaude = window.location.hostname.includes('claude.ai');

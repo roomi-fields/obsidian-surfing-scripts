@@ -19,7 +19,7 @@
   const ENLUMINURE_FOLDER = '_Assets/Enluminures';
   const ILLUSTRATION_FOLDER = '_Assets/Illustrations';
   const OBSIDIAN_API_PORT = 27123;
-  const OBSIDIAN_API_KEY = '79e3a12f004e1adc897f290b9532d4669d7602a2f26c30aa70f68a2f691ebbab';
+  const OBSIDIAN_API_KEY = 'YOUR_LOCAL_REST_API_TOKEN';
 
   const buttonStyleBase = `
     position: absolute;

@@ -9,7 +9,7 @@
 (async function() {
   const SCRIPT_NAME = 'create-note';
   const API_URL = 'http://localhost:27123';
-  const TOKEN = '79e3a12f004e1adc897f290b9532d4669d7602a2f26c30aa70f68a2f691ebbab';
+  const TOKEN = 'YOUR_LOCAL_REST_API_TOKEN';
 
   // Catégories disponibles (notebooks NotebookLM)
   const CATEGORIES = [
@@ -160,7 +160,7 @@
 
   // Checkbox pipeline
   const pipelineRow = document.createElement('div');
-  pipelineRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:15px;padding:10px;background:#f5f5f5;border-radius:4px;';
+  pipelineRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:15px;padding:10px;background:#2b2b2b;border:1px solid #404040;border-radius:4px;';
 
   const pipelineCheckbox = document.createElement('input');
   pipelineCheckbox.type = 'checkbox';

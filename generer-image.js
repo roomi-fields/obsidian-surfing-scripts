@@ -14,7 +14,7 @@
 
   const SCRIPT_NAME = 'generer-image';
   const API_URL = 'http://localhost:27123';
-  const TOKEN = '79e3a12f004e1adc897f290b9532d4669d7602a2f26c30aa70f68a2f691ebbab';
+  const TOKEN = 'YOUR_LOCAL_REST_API_TOKEN';
   const ARTICLES_FOLDER = 'Publications';
   const PROMPTS_FOLDER = '_Assets/Prompts Pipeline/images';
 
@@ -170,11 +170,20 @@
 
         for (const item of data.files) {
           if (item.endsWith('/')) {
-            if (item.startsWith('.') || item.startsWith('_')) continue;
+            // Ignorer dossiers cachés et _Assets, mais autoriser _brouillons
+            if (item.startsWith('.')) continue;
+            if (item.startsWith('_') && item !== '_brouillons/') continue;
             await searchFolder(path + item);
           } else if (item.endsWith('.md')) {
             const filePath = path + item;
-            if (await isArticleFile(filePath)) {
+            // Dans _brouillons: seulement les _6_preprint.md
+            // Ailleurs: fichiers avec type: article
+            const isInBrouillons = path.includes('_brouillons/');
+            if (isInBrouillons) {
+              if (item.includes('_6_preprint.md')) {
+                articles.push(filePath);
+              }
+            } else if (await isArticleFile(filePath)) {
               articles.push(filePath);
             }
           }
@@ -270,7 +279,7 @@
 
   // Info sur le mode
   const modeInfo = document.createElement('div');
-  modeInfo.style.cssText = 'margin:0 0 15px 0;padding:10px;background:#f0f9ff;border-radius:4px;font-size:13px;';
+  modeInfo.style.cssText = 'margin:0 0 15px 0;padding:10px;background:#2b2b2b;border:1px solid #404040;border-radius:4px;font-size:13px;';
   if (hasContent) {
     modeInfo.innerHTML = `<strong>✅ Conversation existante détectée</strong><br>
       Le prompt d'image sera injecté directement.
@@ -313,7 +322,7 @@
   letterInput.maxLength = 1;
   letterInput.value = detectedLetter || '';
   letterInput.placeholder = 'Ex: O';
-  letterInput.style.cssText = 'width:60px;padding:10px;font-size:18px;text-align:center;text-transform:uppercase;border:1px solid #ccc;border-radius:4px;';
+  letterInput.style.cssText = 'width:60px;padding:10px;font-size:18px;text-align:center;text-transform:uppercase;border:1px solid #404040;border-radius:4px;background:#2b2b2b;color:#dcddde;';
 
   letterContainer.appendChild(letterLabel);
   letterContainer.appendChild(letterInput);
