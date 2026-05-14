@@ -9,7 +9,7 @@
  *
  * Clé API Gemini détectée automatiquement depuis :
  *   1. Variable d'environnement GEMINI_API_KEY
- *   2. D:\Claude\atelier-ifs\config.yaml (gemini_api_key)
+ *   2. K:\therapie\atelier-ifs\config.yaml (gemini_api_key)
  */
 
 const fs = require('fs');
@@ -24,8 +24,8 @@ const SEO_KEYS = ['title', 'subtitle', 'excerpt', 'slug', 'focus_keyword', 'tags
 
 // Fichiers de config connus contenant la clé Gemini (Windows + WSL)
 const CONFIG_PATHS = [
-    path.join('D:', 'Claude', 'atelier-ifs', 'config.yaml'),
-    '/mnt/d/Claude/atelier-ifs/config.yaml',
+    path.join('K:', 'therapie', 'atelier-ifs', 'config.yaml'),
+    '/home/romi/dev/therapie/atelier-ifs/config.yaml',
 ];
 
 function findGeminiApiKey() {

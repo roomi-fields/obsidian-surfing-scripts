@@ -25,8 +25,8 @@ const TRANSLATE_PROPS = ['title', 'subtitle', 'excerpt', 'tags', 'slug'];
 
 // Fichiers de config connus contenant la clé Gemini (Windows + WSL)
 const CONFIG_PATHS = [
-    path.join('D:', 'Claude', 'atelier-ifs', 'config.yaml'),
-    '/mnt/d/Claude/atelier-ifs/config.yaml',
+    path.join('K:', 'therapie', 'atelier-ifs', 'config.yaml'),
+    '/home/romi/dev/therapie/atelier-ifs/config.yaml',
 ];
 
 function findGeminiApiKey() {

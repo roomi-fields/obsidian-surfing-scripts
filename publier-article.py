@@ -24,18 +24,18 @@ from pathlib import Path
 # ─── Configuration ───────────────────────────────────────────────────────────
 
 if platform.system() == "Windows":
-    SCRIPTS_DIR = Path(r"D:\Claude\obsidian-surfing-scripts")
+    SCRIPTS_DIR = Path(r"K:\obsidian\obsidian-surfing-scripts")
     ARTICLES_DIR = Path(
-        r"D:\Romain\Articles\Publications\roomi-fields.com\Articles"
+        r"D:\Obsidian\Articles\Publications\roomi-fields.com\Articles"
     )
-    PUBLISH_SCRIPT = Path(r"D:\Claude\BP2SC\tools\publish_article.py")
+    PUBLISH_SCRIPT = Path(r"K:\bp\BP2SC\tools\publish_article.py")
 else:
     # WSL / Linux paths
-    SCRIPTS_DIR = Path("/mnt/d/Claude/obsidian-surfing-scripts")
+    SCRIPTS_DIR = Path("/home/romi/dev/obsidian/obsidian-surfing-scripts")
     ARTICLES_DIR = Path(
-        "/mnt/d/Romain/Articles/Publications/roomi-fields.com/Articles"
+        "/mnt/d/Obsidian/Articles/Publications/roomi-fields.com/Articles"
     )
-    PUBLISH_SCRIPT = Path("/mnt/d/Claude/BP2SC/tools/publish_article.py")
+    PUBLISH_SCRIPT = Path("/home/romi/dev/bp/BP2SC/tools/publish_article.py")
 
 SEO_SCRIPT = SCRIPTS_DIR / "prepare-seo.js"
 TRANSLATE_SCRIPT = SCRIPTS_DIR / "traduire-article.js"
