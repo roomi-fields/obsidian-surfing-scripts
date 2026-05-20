@@ -8,9 +8,9 @@ Ce projet contient des scripts pour automatiser la création de notes et article
 
 | Type | Chemin | Description |
 |------|--------|-------------|
-| **Scripts JS** | `D:\Claude\obsidian-surfing-scripts\` | Scripts fonctionnels |
-| **Prompts** | `D:\Romain\Articles\Publications\_prompts\` | Prompts .md stockés dans le vault Obsidian |
-| **Vault Obsidian** | `D:\Romain\Articles\` | Vault principal |
+| **Scripts JS** | `K:\obsidian\obsidian-surfing-scripts\` | Scripts fonctionnels |
+| **Prompts** | `D:\Obsidian\Articles\_Assets\Prompts\` | Prompts .md stockés dans le vault Obsidian |
+| **Vault Obsidian** | `D:\Obsidian\Articles\` | Vault principal |
 
 ### Scripts principaux
 
@@ -49,7 +49,7 @@ Les scripts utilisent l'API Local REST d'Obsidian :
 
 Les scripts sont stockés **directement dans la configuration** du plugin Surfing, pas comme fichiers externes.
 
-**Fichier de configuration** : `D:\Romain\Articles\.obsidian\plugins\surfing\data.json`
+**Fichier de configuration** : `D:\Obsidian\Articles\.obsidian\plugins\surfing\data.json`
 
 **Structure** : Les scripts sont dans le tableau `customScripts`, chaque entrée contient :
 ```json
