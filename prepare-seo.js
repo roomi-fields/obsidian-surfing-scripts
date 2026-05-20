@@ -200,7 +200,28 @@ Article :
 ${articleContent}`;
 }
 
-function callGemini(prompt) {
+// Erreurs transitoires Google (surcharge 503 / quota 429 / serveur 500 / timeout) :
+// on retente avec backoff exponentiel avant d'abandonner.
+const RETRYABLE = /erreur (503|500|429)|Timeout Gemini/i;
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function callGemini(prompt, maxRetries = 4) {
+    let lastErr;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await callGeminiOnce(prompt);
+        } catch (e) {
+            lastErr = e;
+            if (attempt === maxRetries || !RETRYABLE.test(e.message)) throw e;
+            const delay = Math.min(2000 * 2 ** attempt, 30000);
+            console.error(`  Gemini transitoire (${e.message.slice(0, 80)}) — retry ${attempt + 1}/${maxRetries} dans ${delay / 1000}s`);
+            await sleep(delay);
+        }
+    }
+    throw lastErr;
+}
+
+function callGeminiOnce(prompt) {
     const url = `${GEMINI_URL}?key=${GEMINI_API_KEY}`;
 
     const payload = JSON.stringify({

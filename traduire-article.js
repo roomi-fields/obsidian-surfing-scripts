@@ -63,7 +63,29 @@ if (!fs.existsSync(filePath)) {
 
 // === Gemini API ===
 
-function callGemini(prompt, maxTokens, timeoutMs) {
+// Erreurs transitoires côté Google : surcharge modèle (503), quota court (429),
+// erreur serveur (500), ou timeout réseau. On retente avec backoff exponentiel.
+const RETRYABLE = /erreur (503|500|429)|Timeout Gemini/i;
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function callGemini(prompt, maxTokens, timeoutMs, maxRetries = 4) {
+    let lastErr;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await callGeminiOnce(prompt, maxTokens, timeoutMs);
+        } catch (e) {
+            lastErr = e;
+            if (attempt === maxRetries || !RETRYABLE.test(e.message)) throw e;
+            const delay = Math.min(2000 * 2 ** attempt, 30000); // 2s,4s,8s,16s (cap 30s)
+            console.error(`  Gemini transitoire (${e.message.slice(0, 80)}) — retry ${attempt + 1}/${maxRetries} dans ${delay / 1000}s`);
+            await sleep(delay);
+        }
+    }
+    throw lastErr;
+}
+
+function callGeminiOnce(prompt, maxTokens, timeoutMs) {
     const url = `${GEMINI_URL}?key=${GEMINI_API_KEY}`;
 
     const payload = JSON.stringify({
