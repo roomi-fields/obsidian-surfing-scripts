@@ -13,8 +13,18 @@ const path = require('path');
 const https = require('https');
 
 // === Configuration ===
-const GEMINI_MODEL = 'gemini-2.5-flash';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+// Chaîne de repli : qualité >= gemini-2.5-flash uniquement (jamais de downgrade
+// vers les modèles -lite ou 2.0). Chaque modèle a son PROPRE quota gratuit/jour ;
+// sur 429 (quota épuisé) on bascule au suivant. Override possible via GEMINI_MODEL.
+const GEMINI_MODELS = process.env.GEMINI_MODEL
+    ? [process.env.GEMINI_MODEL]
+    : [
+        'gemini-2.5-flash',
+        'gemini-3-flash-preview',
+        'gemini-3.5-flash',
+        'gemini-2.5-pro',
+    ];
+const modelUrl = (m) => `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`;
 
 // Propriétés frontmatter à ne PAS copier depuis la version FR
 // (elles seront récupérées depuis l'ancien fichier EN s'il existe)
@@ -63,30 +73,39 @@ if (!fs.existsSync(filePath)) {
 
 // === Gemini API ===
 
-// Erreurs transitoires côté Google : surcharge modèle (503), quota court (429),
-// erreur serveur (500), ou timeout réseau. On retente avec backoff exponentiel.
-const RETRYABLE = /erreur (503|500|429)|Timeout Gemini/i;
+// Transitoire (surcharge serveur / timeout) : on retente le MÊME modèle avec backoff.
+const RETRYABLE = /erreur (503|500)|Timeout Gemini/i;
+// Quota épuisé (429 RESOURCE_EXHAUSTED) : inutile d'insister, on bascule au modèle suivant.
+const QUOTA = /erreur 429/i;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-async function callGemini(prompt, maxTokens, timeoutMs, maxRetries = 4) {
+async function callGemini(prompt, maxTokens, timeoutMs, maxRetries = 3) {
     let lastErr;
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-            return await callGeminiOnce(prompt, maxTokens, timeoutMs);
-        } catch (e) {
-            lastErr = e;
-            if (attempt === maxRetries || !RETRYABLE.test(e.message)) throw e;
-            const delay = Math.min(2000 * 2 ** attempt, 30000); // 2s,4s,8s,16s (cap 30s)
-            console.error(`  Gemini transitoire (${e.message.slice(0, 80)}) — retry ${attempt + 1}/${maxRetries} dans ${delay / 1000}s`);
-            await sleep(delay);
+    for (const model of GEMINI_MODELS) {
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            try {
+                const text = await callGeminiOnce(prompt, maxTokens, timeoutMs, model);
+                if (model !== GEMINI_MODELS[0]) console.error(`  (généré via repli: ${model})`);
+                return text;
+            } catch (e) {
+                lastErr = e;
+                if (QUOTA.test(e.message)) {
+                    console.error(`  Quota épuisé sur ${model} (429) — bascule vers le modèle suivant`);
+                    break; // modèle suivant
+                }
+                if (attempt === maxRetries || !RETRYABLE.test(e.message)) throw e;
+                const delay = Math.min(2000 * 2 ** attempt, 30000); // 2s,4s,8s (cap 30s)
+                console.error(`  Gemini transitoire sur ${model} (${e.message.slice(0, 60)}) — retry ${attempt + 1}/${maxRetries} dans ${delay / 1000}s`);
+                await sleep(delay);
+            }
         }
     }
-    throw lastErr;
+    throw new Error(`Tous les modèles Gemini épuisés ou en échec (${GEMINI_MODELS.join(', ')}). Dernière erreur: ${lastErr && lastErr.message}`);
 }
 
-function callGeminiOnce(prompt, maxTokens, timeoutMs) {
-    const url = `${GEMINI_URL}?key=${GEMINI_API_KEY}`;
+function callGeminiOnce(prompt, maxTokens, timeoutMs, model) {
+    const url = `${modelUrl(model)}?key=${GEMINI_API_KEY}`;
 
     const payload = JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
