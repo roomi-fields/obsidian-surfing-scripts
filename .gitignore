@@ -11,3 +11,6 @@ Thumbs.db
 # Local config (user tokens)
 .env
 config.local.js
+
+# Clés API Gemini (multi-clé) — NE JAMAIS committer
+.gemini-keys

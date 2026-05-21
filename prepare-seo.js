@@ -32,34 +32,44 @@ const modelUrl = (m) => `https://generativelanguage.googleapis.com/v1beta/models
 
 const SEO_KEYS = ['title', 'subtitle', 'excerpt', 'slug', 'focus_keyword', 'tags'];
 
-// Fichiers de config connus contenant la clé Gemini (Windows + WSL)
+// Clés API Gemini — MULTI-CLÉ pour cumuler les quotas gratuits (chaque clé = projet
+// = quota séparé). Découverte (ordre, dédupliqué) : env GEMINI_API_KEYS (séparées par
+// virgule) > fichier .gemini-keys à côté de ce script (NON versionné, une clé/ligne) >
+// config.yaml (clé unique historique).
 const CONFIG_PATHS = [
     path.join('K:', 'therapie', 'atelier-ifs', 'config.yaml'),
     '/home/romi/dev/therapie/atelier-ifs/config.yaml',
 ];
 
-function findGeminiApiKey() {
-    // 1. Variable d'environnement
-    if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
-
-    // 2. Fichiers de config connus
+function findGeminiApiKeys() {
+    const keys = [];
+    if (process.env.GEMINI_API_KEYS) keys.push(...process.env.GEMINI_API_KEYS.split(','));
+    if (process.env.GEMINI_API_KEY) keys.push(process.env.GEMINI_API_KEY);
+    try {
+        const kf = path.join(__dirname, '.gemini-keys');
+        if (fs.existsSync(kf)) {
+            for (const line of fs.readFileSync(kf, 'utf-8').split(/\r?\n/)) {
+                const k = line.trim();
+                if (k && !k.startsWith('#')) keys.push(k);
+            }
+        }
+    } catch (e) { /* ignore */ }
     for (const cfgPath of CONFIG_PATHS) {
         try {
             if (!fs.existsSync(cfgPath)) continue;
-            const content = fs.readFileSync(cfgPath, 'utf-8');
-            const match = content.match(/gemini_api_key:\s*["']?([^"'\s\r\n]+)["']?/);
-            if (match) return match[1];
+            const m = fs.readFileSync(cfgPath, 'utf-8').match(/gemini_api_key:\s*["']?([^"'\s\r\n]+)["']?/);
+            if (m) keys.push(m[1]);
         } catch (e) { /* ignore */ }
     }
-
-    return null;
+    return [...new Set(keys.map(k => k.trim()).filter(Boolean))];
 }
 
-const GEMINI_API_KEY = findGeminiApiKey();
+const GEMINI_API_KEYS = findGeminiApiKeys();
+const maskKey = (k) => `…${k.slice(-6)}`;
 
 // === Validation ===
-if (!GEMINI_API_KEY) {
-    console.error('Clé API Gemini introuvable. Vérifiez config.yaml ou définissez GEMINI_API_KEY.');
+if (GEMINI_API_KEYS.length === 0) {
+    console.error('Aucune clé API Gemini trouvée. Renseignez .gemini-keys, config.yaml ou GEMINI_API_KEYS.');
     process.exit(1);
 }
 
@@ -218,30 +228,33 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function callGemini(prompt, maxRetries = 3) {
     let lastErr;
-    for (const model of GEMINI_MODELS) {
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-                const text = await callGeminiOnce(prompt, model);
-                if (model !== GEMINI_MODELS[0]) console.error(`  (généré via repli: ${model})`);
-                return text;
-            } catch (e) {
-                lastErr = e;
-                if (QUOTA.test(e.message)) {
-                    console.error(`  Quota épuisé sur ${model} (429) — bascule vers le modèle suivant`);
-                    break; // modèle suivant
+    for (const key of GEMINI_API_KEYS) {
+        for (const model of GEMINI_MODELS) {
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    const text = await callGeminiOnce(prompt, model, key);
+                    if (key !== GEMINI_API_KEYS[0] || model !== GEMINI_MODELS[0])
+                        console.error(`  (généré via ${model} / clé ${maskKey(key)})`);
+                    return text;
+                } catch (e) {
+                    lastErr = e;
+                    if (QUOTA.test(e.message)) {
+                        console.error(`  Quota épuisé: ${model} / clé ${maskKey(key)} (429) — modèle suivant`);
+                        break; // modèle suivant (même clé) ; clé suivante quand tous épuisés
+                    }
+                    if (attempt === maxRetries || !RETRYABLE.test(e.message)) throw e;
+                    const delay = Math.min(2000 * 2 ** attempt, 30000);
+                    console.error(`  Gemini transitoire ${model}/${maskKey(key)} (${e.message.slice(0, 50)}) — retry ${attempt + 1}/${maxRetries} dans ${delay / 1000}s`);
+                    await sleep(delay);
                 }
-                if (attempt === maxRetries || !RETRYABLE.test(e.message)) throw e;
-                const delay = Math.min(2000 * 2 ** attempt, 30000);
-                console.error(`  Gemini transitoire sur ${model} (${e.message.slice(0, 60)}) — retry ${attempt + 1}/${maxRetries} dans ${delay / 1000}s`);
-                await sleep(delay);
             }
         }
     }
-    throw new Error(`Tous les modèles Gemini épuisés ou en échec (${GEMINI_MODELS.join(', ')}). Dernière erreur: ${lastErr && lastErr.message}`);
+    throw new Error(`Tous les modèles × clés Gemini épuisés/en échec (${GEMINI_MODELS.length} modèles × ${GEMINI_API_KEYS.length} clés). Dernière erreur: ${lastErr && lastErr.message}`);
 }
 
-function callGeminiOnce(prompt, model) {
-    const url = `${modelUrl(model)}?key=${GEMINI_API_KEY}`;
+function callGeminiOnce(prompt, model, key) {
+    const url = `${modelUrl(model)}?key=${key}`;
 
     const payload = JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
