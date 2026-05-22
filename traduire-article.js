@@ -91,16 +91,24 @@ if (!fs.existsSync(filePath)) {
 const RETRYABLE = /erreur (503|500)|Timeout Gemini/i;
 // Quota épuisé (429 RESOURCE_EXHAUSTED) : inutile d'insister, on bascule au modèle suivant.
 const QUOTA = /erreur 429/i;
+// Sortie incomplète : budget tokens atteint (MAX_TOKENS) ou validation échouée (sections
+// manquantes). Réessayer le même modèle ne sert à rien — on bascule au modèle suivant, qui
+// peut produire une traduction complète. Si tous échouent, callGemini jette (pas d'écrasement).
+const INCOMPLETE = /MAX_TOKENS|troncation/i;
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-async function callGemini(prompt, maxTokens, timeoutMs, maxRetries = 3) {
+// `validate(text)` (optionnel) doit JETER une erreur "troncation: ..." si la sortie est
+// incomplète ; cela force le repli vers le modèle/clé suivant au lieu d'accepter un résultat
+// partiel. Utilisé pour le corps (vérification du nombre de sections H2).
+async function callGemini(prompt, maxTokens, timeoutMs, { maxRetries = 3, validate = null } = {}) {
     let lastErr;
     for (const key of GEMINI_API_KEYS) {
         for (const model of GEMINI_MODELS) {
             for (let attempt = 0; attempt <= maxRetries; attempt++) {
                 try {
                     const text = await callGeminiOnce(prompt, maxTokens, timeoutMs, model, key);
+                    if (validate) validate(text); // jette si incomplet → catch → modèle suivant
                     if (key !== GEMINI_API_KEYS[0] || model !== GEMINI_MODELS[0])
                         console.error(`  (généré via ${model} / clé ${maskKey(key)})`);
                     return text;
@@ -109,6 +117,10 @@ async function callGemini(prompt, maxTokens, timeoutMs, maxRetries = 3) {
                     if (QUOTA.test(e.message)) {
                         console.error(`  Quota épuisé: ${model} / clé ${maskKey(key)} (429) — modèle suivant`);
                         break; // modèle suivant (même clé) ; clé suivante quand tous épuisés
+                    }
+                    if (INCOMPLETE.test(e.message)) {
+                        console.error(`  Sortie incomplète: ${model} / clé ${maskKey(key)} (${e.message.slice(0, 40)}) — modèle suivant`);
+                        break; // ne pas accepter un résultat tronqué — essayer un autre modèle
                     }
                     if (attempt === maxRetries || !RETRYABLE.test(e.message)) throw e;
                     const delay = Math.min(2000 * 2 ** attempt, 30000); // 2s,4s,8s (cap 30s)
@@ -153,7 +165,12 @@ function callGeminiOnce(prompt, maxTokens, timeoutMs, model, key) {
                 }
                 try {
                     const json = JSON.parse(data);
-                    const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+                    const cand = json.candidates?.[0];
+                    if (cand?.finishReason === 'MAX_TOKENS') {
+                        reject(new Error(`erreur MAX_TOKENS: sortie tronquée (budget ${maxTokens} atteint)`));
+                        return;
+                    }
+                    const text = cand?.content?.parts?.[0]?.text;
                     if (!text) throw new Error('Réponse Gemini vide');
                     resolve(text);
                 } catch (e) {
@@ -263,7 +280,7 @@ Respond ONLY with valid JSON, no text before or after:
 
 // === Traduction du corps ===
 
-async function translateBody(body) {
+async function translateBody(body, expectedH2 = 0) {
     const prompt = `You are a professional French-to-English translator.
 Translate the following Markdown article from French to English.
 
@@ -283,7 +300,15 @@ CRITICAL RULES:
 Article to translate:
 ${body}`;
 
-    return await callGemini(prompt, 32768, 180000);
+    // Rejette toute traduction qui perd des sections (le modèle a sauté/résumé) → repli.
+    return await callGemini(prompt, 32768, 180000, {
+        validate: (text) => {
+            const n = (text.match(/^## /gm) || []).length;
+            if (expectedH2 > 0 && n < expectedH2) {
+                throw new Error(`troncation: ${expectedH2} sections H2 attendues, ${n} obtenues`);
+            }
+        }
+    });
 }
 
 // === Construction du fichier EN ===
@@ -395,15 +420,13 @@ async function main() {
 
     const h2CountOriginal = (cleanBody.match(/^## /gm) || []).length;
 
-    // Traduire frontmatter + corps
+    // Traduire frontmatter + corps. translateBody jette si la traduction perd des sections
+    // (repli automatique vers un autre modèle/clé ; abandon sans écraser si tous échouent).
     const translatedProps = await translateFrontmatter(props);
-    const translatedBody = await translateBody(cleanBody);
+    const translatedBody = await translateBody(cleanBody, h2CountOriginal);
 
-    // Vérification sections
+    // À ce stade la complétude est garantie ; garde-fou défensif.
     const h2CountTranslated = (translatedBody.match(/^## /gm) || []).length;
-    if (h2CountOriginal > 0 && h2CountTranslated < h2CountOriginal) {
-        console.log(`⚠️ H2: ${h2CountOriginal} → ${h2CountTranslated} (troncation possible)`);
-    }
 
     // Récupérer les champs WordPress de l'ancien fichier EN s'il existe
     let preservedFields = {};
