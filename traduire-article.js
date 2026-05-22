@@ -122,7 +122,13 @@ async function callGemini(prompt, maxTokens, timeoutMs, { maxRetries = 3, valida
                         console.error(`  Sortie incomplète: ${model} / clé ${maskKey(key)} (${e.message.slice(0, 40)}) — modèle suivant`);
                         break; // ne pas accepter un résultat tronqué — essayer un autre modèle
                     }
-                    if (attempt === maxRetries || !RETRYABLE.test(e.message)) throw e;
+                    if (!RETRYABLE.test(e.message)) throw e; // erreur inconnue → abandon
+                    if (attempt === maxRetries) {
+                        // 503/500/timeout persistant sur ce modèle → basculer au suivant
+                        // (un autre modèle/clé n'est probablement pas en surcharge).
+                        console.error(`  ${model} / clé ${maskKey(key)} indisponible après ${maxRetries} essais — modèle suivant`);
+                        break;
+                    }
                     const delay = Math.min(2000 * 2 ** attempt, 30000); // 2s,4s,8s (cap 30s)
                     console.error(`  Gemini transitoire ${model}/${maskKey(key)} (${e.message.slice(0, 50)}) — retry ${attempt + 1}/${maxRetries} dans ${delay / 1000}s`);
                     await sleep(delay);
@@ -300,8 +306,11 @@ CRITICAL RULES:
 Article to translate:
 ${body}`;
 
-    // Rejette toute traduction qui perd des sections (le modèle a sauté/résumé) → repli.
-    return await callGemini(prompt, 32768, 180000, {
+    // Budget large (65536, max famille 2.5) : la sortie utile fait ~15k tokens, mais les
+    // modèles « thinking » consomment un budget variable en raisonnement ; sans marge on
+    // déclenche des MAX_TOKENS aléatoires sur les longs articles. Rejette aussi toute
+    // traduction qui perd des sections (le modèle a sauté/résumé) → repli.
+    return await callGemini(prompt, 65536, 180000, {
         validate: (text) => {
             const n = (text.match(/^## /gm) || []).length;
             if (expectedH2 > 0 && n < expectedH2) {
