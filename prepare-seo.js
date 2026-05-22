@@ -242,7 +242,12 @@ async function callGemini(prompt, maxRetries = 3) {
                         console.error(`  Quota épuisé: ${model} / clé ${maskKey(key)} (429) — modèle suivant`);
                         break; // modèle suivant (même clé) ; clé suivante quand tous épuisés
                     }
-                    if (attempt === maxRetries || !RETRYABLE.test(e.message)) throw e;
+                    if (!RETRYABLE.test(e.message)) throw e; // erreur inconnue → abandon
+                    if (attempt === maxRetries) {
+                        // 503/500/timeout persistant sur ce modèle → basculer au suivant.
+                        console.error(`  ${model} / clé ${maskKey(key)} indisponible après ${maxRetries} essais — modèle suivant`);
+                        break;
+                    }
                     const delay = Math.min(2000 * 2 ** attempt, 30000);
                     console.error(`  Gemini transitoire ${model}/${maskKey(key)} (${e.message.slice(0, 50)}) — retry ${attempt + 1}/${maxRetries} dans ${delay / 1000}s`);
                     await sleep(delay);
